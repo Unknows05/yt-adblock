@@ -2,7 +2,7 @@
 // @name         Brave-Style YouTube Adblock
 // @namespace    https://github.com/Unknows05/yt-adblock
 // @version      1.2.3
-// @description  Multi-layer adblock mimicking Brave Shields - FIXED AUTO-PLAY BUG
+// @description  Multi-layer adblock mimicking Brave Shields - FINAL
 // @author       Unknowns05
 // @match        https://www.youtube.com/*
 // @match        https://m.youtube.com/*
