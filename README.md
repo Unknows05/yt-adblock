@@ -2,11 +2,9 @@
 
 Script pemblokir iklan YouTube multi-layer, mengikuti metode Brave Shields.
 
-## 🚀 Install Langsung
+## 🚀 Install
 
-**Klik tombol di bawah ini** (pastikan Tampermonkey sudah terinstall):
-
-[![Install Tampermonkey Script](https://img.shields.io/badge/Install-🐵%20Tampermonkey-green?style=for-the-badge&logo=googlechrome)](https://raw.githubusercontent.com/Unknows05/yt-adblock/main/youtube-adblock.user.js)
+[![Install](https://img.shields.io/badge/Install%20Script-🛡️%20Tampermonkey-brightgreen)](https://raw.githubusercontent.com/Unknows05/Brave-StyleYouTubeAdblock/main/youtube-adblock.user.js)
 
 ## 📋 Cara Install Manual
 
