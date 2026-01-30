@@ -1,21 +1,32 @@
 // ==UserScript==
 // @name         Brave-Style YouTube Adblock
-// @namespace    https://github.com/Unknows05/yt-adblock
-// @version      1.2.3
-// @description  Multi-layer adblock mimicking Brave Shields - FINAL
+// @namespace    https://github.com/Unknows05/Brave-StyleYouTubeAdblock
+// @version      1.2.4  // <-- NAIKKAN VERSI (dari 1.2.3 ke 1.2.4)
+// @description  Multi-layer adblock mimicking Brave Shields - FIXED AUTO-PLAY BUG
 // @author       Unknowns05
+// @license      MIT
+// @copyright    2024, Unknowns05
 // @match        https://www.youtube.com/*
 // @match        https://m.youtube.com/*
 // @icon         https://brave.com/static-assets/images/brave-favicon.png
 // @grant        none
 // @run-at       document-start
 // @noframes
-// @updateURL    https://raw.githubusercontent.com/Unknows05/yt-adblock/main/youtube-adblock.user.js
-// @downloadURL  https://raw.githubusercontent.com/Unknows05/yt-adblock/main/youtube-adblock.user.js
+// @updateURL    https://raw.githubusercontent.com/Unknows05/Brave-StyleYouTubeAdblock/main/youtube-adblock.user.js
+// @downloadURL  https://raw.githubusercontent.com/Unknows05/Brave-StyleYouTubeAdblock/main/youtube-adblock.user.js
 // ==/UserScript==
+
+/*
+MIT License
+
+Copyright (c) 2026 Unknowns05
+Permission is hereby granted, free of charge, to any person obtaining a copy...
+*/
 
 (function() {
     'use strict';
+    
+    console.log('[Brave Adblock] v1.2.4 Loaded - Repo Updated');
 
     // ============================================================
     // CONFIGURATION
