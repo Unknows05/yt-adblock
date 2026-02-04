@@ -1,11 +1,9 @@
 // ==UserScript==
 // @name         Brave-Style YouTube Adblock
 // @namespace    https://github.com/Unknows05/Brave-StyleYouTubeAdblock
-// @version      1.2.4
-// @description  Multi-layer adblock mimicking Brave Shields - FIXED AUTO-PLAY BUG
-// @author       Unknowns05
-// @license      MIT
-// @copyright    2026, Unknowns05
+// @version      1.3.0
+// @description  Multi-layer adblock mimicking Brave Shields - FIXED: Account menu, Sidebar ads, Cross-device compatibility
+// @author       Based on Brave Shields & EasyList
 // @match        https://www.youtube.com/*
 // @match        https://m.youtube.com/*
 // @icon         https://brave.com/static-assets/images/brave-favicon.png
@@ -16,7 +14,7 @@
 // @downloadURL  https://raw.githubusercontent.com/Unknows05/Brave-StyleYouTubeAdblock/main/youtube-adblock.user.js
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
 
     // ============================================================
@@ -24,12 +22,23 @@
     // ============================================================
 
     const CONFIG = {
+        // Layer 1: Network Blocking (Domain-based)
         enableNetworkBlock: true,
+
+        // Layer 2: DOM Filtering (Element hiding)
         enableDOMFilter: true,
+
+        // Layer 3: Script Blocking
         enableScriptBlock: true,
+
+        // Anti-Adblock Bypass
         enableAntiAdblockBypass: true,
+
+        // Debug mode
         debug: false,
-        autoUpdate: false  // DIMATIKAN: butuh GM_info dengan @grant
+
+        // Update check
+        autoUpdate: true
     };
 
     // ============================================================
@@ -37,14 +46,14 @@
     // ============================================================
 
     let state = {
-        userPaused: false,
-        lastUserInteraction: 0,
-        isAdShowing: false,
-        videoElement: null,
-        adSkipAttempted: false
+        userPaused: false,           // User manually paused the video
+        lastUserInteraction: 0,      // Timestamp of last user interaction
+        isAdShowing: false,          // Currently in ad
+        videoElement: null,          // Reference to video element
+        adSkipAttempted: false       // Prevent multiple skip attempts
     };
 
-    const USER_INTERACTION_TIMEOUT = 5000;
+    const USER_INTERACTION_TIMEOUT = 5000; // 5 seconds - user interaction is valid for this duration
 
     // ============================================================
     // LAYER 1: NETWORK-LEVEL BLOCKING
@@ -65,14 +74,15 @@
             'ads.youtube.com'
         ];
 
+        // Intercept XMLHttpRequest
         const originalOpen = XMLHttpRequest.prototype.open;
-        XMLHttpRequest.prototype.open = function(method, url) {
+        XMLHttpRequest.prototype.open = function (method, url) {
             if (typeof url === 'string') {
                 const lowerUrl = url.toLowerCase();
+
                 for (const domain of AD_DOMAINS) {
                     if (lowerUrl.includes(domain)) {
                         if (CONFIG.debug) console.log('🛡️ [NETWORK BLOCK] Blocked:', url);
-                        // FIX: Jangan return undefined, abort saja
                         this.abort();
                         return;
                     }
@@ -81,11 +91,14 @@
             return originalOpen.apply(this, arguments);
         };
 
+        // Intercept Fetch API
         const originalFetch = window.fetch;
-        window.fetch = function(input, init) {
+        window.fetch = function (input, init) {
             let url = typeof input === 'string' ? input : input.url;
+
             if (url) {
                 const lowerUrl = url.toLowerCase();
+
                 for (const domain of AD_DOMAINS) {
                     if (lowerUrl.includes(domain)) {
                         if (CONFIG.debug) console.log('🛡️ [NETWORK BLOCK] Blocked fetch:', url);
@@ -93,6 +106,7 @@
                     }
                 }
             }
+
             return originalFetch.apply(this, arguments);
         };
 
@@ -107,8 +121,8 @@
         if (!CONFIG.enableDOMFilter) return;
 
         const CSS_FILTERS = `
-            .ad-showing,
-            .ytp-ad-player-overlay,
+            /* ===== VIDEO PLAYER ADS ===== */
+            .ad-showing .ytp-ad-player-overlay,
             .ytp-ad-text-overlay,
             .ytp-ad-module,
             .ytp-ad-overlay-container,
@@ -116,9 +130,16 @@
             .ytp-ad-skip-button,
             .ytp-ad-skip-button-modern,
             .ytp-ad-skip-button-container,
+            .ytp-ad-image-overlay,
+            .ytp-ad-overlay-slot,
+            .ytp-ad-overlay-close-container,
             .videoAdUi,
             .videoAdUiLearnMore,
             .videoAdUiVisitAdvertiserLink,
+            .ytp-ad-preview-container,
+            .ytp-ad-action-interstitial,
+
+            /* ===== PAGE ADS ===== */
             ytd-display-ad-renderer,
             ytd-promoted-sparkles-web-renderer,
             ytd-promoted-video-renderer,
@@ -130,21 +151,61 @@
             ytd-banner-promo-renderer,
             ytd-statement-banner-renderer,
             ytd-mealbar-promo-renderer,
-            ytd-enforcement-message-view-model,
             ytd-merch-shelf-renderer,
-            ytm-promoted-sparkles-web-renderer,
+            ytd-player-legacy-desktop-watch-ads-renderer,
+
+            /* ===== SIDEBAR & COMPANION ADS (NEW - FIX FOR SIDEBAR BUG) ===== */
             ytd-compact-promoted-video-renderer,
             ytd-promoted-sparkles-text-search-renderer,
-            tp-yt-iron-overlay-backdrop,
-            ytd-popup-container > tp-yt-paper-dialog,
+            ytm-promoted-sparkles-web-renderer,
+            ytm-promoted-video-renderer,
+            #related ytd-ad-slot-renderer,
+            #secondary ytd-ad-slot-renderer,
+            #secondary ytd-companion-slot-renderer,
+            ytd-companion-slot-renderer,
+            #watch-next-feed ytd-ad-slot-renderer,
+            #items > ytd-ad-slot-renderer,
+            ytd-rich-item-renderer:has(ytd-ad-slot-renderer),
+            ytd-rich-item-renderer:has(ytd-promoted-sparkles-web-renderer),
+            ytd-rich-item-renderer:has(ytd-display-ad-renderer),
+            
+            /* ===== MOBILE SIDEBAR ADS ===== */
+            ytm-companion-ad-renderer,
+            ytm-promoted-sparkles-web-renderer,
+            ytm-ad-slot-renderer,
+            .watch-below-the-player ytm-ad-slot-renderer,
+            
+            /* ===== SEARCH RESULT ADS ===== */
+            ytd-search-pyv-renderer,
+            ytd-movie-offer-module-renderer,
+
+            /* ===== BANNERS ===== */
             #masthead-ad,
             #player-ads,
             .player-ads,
             .ytd-video-masthead-ad-v3-renderer,
-            [data-is-sponsored],
+            #offer-module,
+            .ytd-primetime-promo-renderer,
+
+            /* ===== SPONSORED CONTENT (MORE SPECIFIC) ===== */
+            ytd-rich-item-renderer[is-ad],
+            ytd-video-renderer[is-ad],
+            [data-is-sponsored="true"],
             [data-ad-slot],
+            ytd-rich-item-renderer:has([data-ad-slot]),
+
+            /* ===== ANTI-ADBLOCK (MORE SPECIFIC - FIX FOR ACCOUNT MENU BUG) ===== */
+            ytd-enforcement-message-view-model,
+            tp-yt-iron-overlay-backdrop.opened[style*="z-index: 2"]:has(+ ytd-popup-container ytd-enforcement-message-view-model),
+            ytd-popup-container tp-yt-paper-dialog:has(ytd-enforcement-message-view-model),
+
+            /* ===== HIDE ADS BUT DON'T BLOCK MENUS ===== */
             .style-scope.ytd-enforcement-message-view-model,
-            .style-scope.ytd-mealbar-promo-renderer {
+            .style-scope.ytd-mealbar-promo-renderer,
+
+            /* ===== AD LOADING SPINNER ===== */
+            .ytp-ad-loading-spinner,
+            .ytp-ad-message-text {
                 display: none !important;
                 visibility: hidden !important;
                 height: 0 !important;
@@ -153,10 +214,15 @@
                 margin: 0 !important;
                 pointer-events: none !important;
             }
+
+            /* ===== FIX LAYOUT AFTER REMOVAL ===== */
             ytd-watch-flexy[flexy][is-two-columns_]:not([fullscreen]) {
                 --ytd-watch-flexy-player-width: calc(var(--ytd-watch-flexy-player-width) + var(--ytd-watch-flexy-sidebar-width)) !important;
             }
-            .ytp-ad-loading-spinner {
+
+            /* ===== PREVENT AD PLACEHOLDER SPACE ===== */
+            ytd-ad-slot-renderer:empty,
+            ytd-companion-slot-renderer:empty {
                 display: none !important;
             }
         `;
@@ -203,6 +269,7 @@
                 mutation.addedNodes.forEach((node) => {
                     if (node.tagName === 'SCRIPT') {
                         const src = node.src || node.textContent;
+
                         for (const pattern of AD_SCRIPT_PATTERNS) {
                             if (pattern.test(src)) {
                                 node.remove();
@@ -228,12 +295,14 @@
     // ============================================================
 
     function setupUserInteractionTracking() {
+        // Get video player container
         const getPlayerContainer = () => {
             return document.querySelector('.html5-video-player') ||
-                   document.querySelector('.ytp-chrome-bottom') ||
-                   document.querySelector('video');
+                document.querySelector('.ytp-chrome-bottom') ||
+                document.querySelector('video');
         };
 
+        // Track user clicks on video player (play/pause button area)
         document.addEventListener('click', (e) => {
             const playerContainer = getPlayerContainer();
             const video = document.querySelector('video');
@@ -241,6 +310,7 @@
             if (playerContainer && playerContainer.contains(e.target)) {
                 state.lastUserInteraction = Date.now();
 
+                // Check if video state changed to paused
                 if (video && video.paused) {
                     state.userPaused = true;
                     log('⏸️ User manually paused video', 'info');
@@ -251,14 +321,17 @@
             }
         }, true);
 
+        // Track keyboard spacebar (common pause shortcut)
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.key === ' ') {
                 const activeElement = document.activeElement;
                 const video = document.querySelector('video');
 
+                // If space pressed and video exists (not in input field)
                 if (video && !['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement?.tagName)) {
                     state.lastUserInteraction = Date.now();
 
+                    // Toggle userPaused state
                     if (video.paused) {
                         state.userPaused = false;
                         log('▶️ User pressed space to play', 'info');
@@ -270,15 +343,21 @@
             }
         }, true);
 
+        // Track video element play/pause events
         const videoObserver = new MutationObserver(() => {
             const video = document.querySelector('video');
             if (video && video !== state.videoElement) {
                 state.videoElement = video;
 
+                // Listen to video events
                 video.addEventListener('pause', () => {
+                    // Only set userPaused if it's not an ad
                     if (!state.isAdShowing && !state.userPaused) {
+                        // This might be anti-adblock pause, check timestamp
                         const timeSinceInteraction = Date.now() - state.lastUserInteraction;
+
                         if (timeSinceInteraction > USER_INTERACTION_TIMEOUT) {
+                            // Likely anti-adblock pause, don't mark as user pause
                             log('⏸️ Video paused (likely anti-adblock)', 'warn');
                         }
                     }
@@ -309,39 +388,45 @@
             const video = document.querySelector('video');
             if (!video) return;
 
-            // Dismiss anti-adblock buttons
+            // 1. Dismiss anti-adblock buttons
             const dismissBtn = document.querySelector('#dismiss-button, [aria-label="Close"], .ytp-ad-skip-button');
             if (dismissBtn) {
                 dismissBtn.click();
                 log('Dismissed anti-adblock popup');
             }
 
-            // Remove enforcement message
+            // 2. Remove enforcement message
             const enforcement = document.querySelector('ytd-enforcement-message-view-model');
             if (enforcement) {
                 enforcement.remove();
                 log('Removed enforcement message');
             }
 
-            // Remove overlay backdrop
+            // 3. Remove overlay backdrop
             const backdrop = document.querySelector('tp-yt-iron-overlay-backdrop');
             if (backdrop) {
                 backdrop.remove();
             }
 
-            // SMART AUTO-PLAY - Only play if:
-            // - Video is paused
-            // - NOT paused by user (within timeout)
-            // - No ad is showing
+            // 4. SMART AUTO-PLAY - Only play if:
+            //    - Video is paused
+            //    - NOT paused by user (within timeout)
+            //    - No ad is showing
             if (video.paused && !state.userPaused) {
                 const timeSinceInteraction = Date.now() - state.lastUserInteraction;
+
+                // Check if pause was recent user interaction
                 const isRecentUserPause = timeSinceInteraction < USER_INTERACTION_TIMEOUT;
 
                 if (!isRecentUserPause && !state.isAdShowing) {
+                    // This is likely anti-adblock pause - auto-play
                     video.play().then(() => {
                         log('▶️ Auto-played (anti-adblock prevention)', 'info');
-                    }).catch(() => {});
+                    }).catch(() => {
+                        // Ignore play errors
+                    });
                 } else if (isRecentUserPause) {
+                    // User recently paused, respect their choice
                     if (CONFIG.debug) {
                         console.log('⏸️ Respecting user pause (within timeout)');
                     }
@@ -395,8 +480,10 @@
                 state.adSkipAttempted = false;
 
                 if (video) {
+                    // Mute ad audio
                     video.muted = true;
 
+                    // Skip to end of ad
                     if (!state.adSkipAttempted && isFinite(video.duration)) {
                         const randomOffset = Math.random() * 0.5 + 0.1;
                         try {
@@ -411,11 +498,94 @@
             } else {
                 state.isAdShowing = false;
                 state.adSkipAttempted = false;
+
+                // Restore video state after ad
                 if (video) {
                     video.muted = false;
                 }
             }
         }, 200);
+    }
+
+    // ============================================================
+    // SIDEBAR AD REMOVAL (NEW - FIX FOR CROSS-DEVICE BUG)
+    // ============================================================
+
+    function setupSidebarAdRemoval() {
+        // Selectors for all types of sidebar/companion ads
+        const SIDEBAR_AD_SELECTORS = [
+            'ytd-ad-slot-renderer',
+            'ytd-companion-slot-renderer',
+            'ytd-action-companion-ad-renderer',
+            'ytd-display-ad-renderer',
+            'ytd-promoted-sparkles-web-renderer',
+            'ytd-promoted-video-renderer',
+            'ytd-compact-promoted-video-renderer',
+            'ytm-companion-ad-renderer',
+            'ytm-promoted-sparkles-web-renderer',
+            'ytm-ad-slot-renderer',
+            '[data-ad-slot]',
+            'ytd-rich-item-renderer[is-ad]'
+        ];
+
+        // Active removal function
+        const removeAds = () => {
+            SIDEBAR_AD_SELECTORS.forEach(selector => {
+                const ads = document.querySelectorAll(selector);
+                ads.forEach(ad => {
+                    // Don't remove account menu or legitimate elements
+                    if (!ad.closest('ytd-popup-container') &&
+                        !ad.closest('#avatar-container') &&
+                        !ad.closest('ytd-topbar-menu-button-renderer')) {
+                        ad.remove();
+                        log(`🗑️ Removed sidebar ad: ${selector}`);
+                    }
+                });
+            });
+        };
+
+        // Run immediately
+        removeAds();
+
+        // Run periodically for dynamically loaded ads
+        setInterval(removeAds, 1000);
+
+        // Also use MutationObserver for instant removal
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        SIDEBAR_AD_SELECTORS.forEach(selector => {
+                            // Check if the added node matches
+                            if (node.matches && node.matches(selector)) {
+                                if (!node.closest('ytd-popup-container') &&
+                                    !node.closest('#avatar-container')) {
+                                    node.remove();
+                                    log(`🗑️ Instantly removed ad: ${selector}`);
+                                }
+                            }
+                            // Check for matching children
+                            const childAds = node.querySelectorAll ? node.querySelectorAll(selector) : [];
+                            childAds.forEach(ad => {
+                                if (!ad.closest('ytd-popup-container') &&
+                                    !ad.closest('#avatar-container')) {
+                                    ad.remove();
+                                    log(`🗑️ Instantly removed child ad: ${selector}`);
+                                }
+                            });
+                        });
+                    }
+                });
+            });
+        });
+
+        // Observe the entire document for changes
+        observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true
+        });
+
+        log('Sidebar ad removal enabled (with MutationObserver)');
     }
 
     // ============================================================
@@ -428,7 +598,7 @@
         const prefix = '🛡️ [Brave-Style Adblock]';
         const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
 
-        switch(level) {
+        switch (level) {
             case 'error':
                 console.error(`${prefix} [${timestamp}] ❌ ${message}`);
                 break;
@@ -442,17 +612,61 @@
     }
 
     function initialize() {
-        log('Initializing Brave-Style Adblock v1.2.4...', 'info');
+        log('Initializing Brave-Style Adblock v1.3.0...', 'info');
 
+        // Setup user interaction tracking FIRST
         setupUserInteractionTracking();
+
+        // Layer 1: Network blocking
         setupNetworkBlocking();
+
+        // Layer 2: DOM filtering
         setupDOMFiltering();
+
+        // Layer 3: Script blocking
         setupScriptBlocking();
+
+        // Ad detection
         setupAdDetection();
+
+        // Sidebar ad removal (NEW - fixes cross-device bug)
+        setupSidebarAdRemoval();
+
+        // Anti-adblock bypass (with fix)
         setupAntiAdblockBypass();
+
+        // Auto-skip buttons
         setupSkipButtonAutoClick();
 
         log('✅ All layers active - Enjoy ad-free YouTube!', 'info');
+    }
+
+    // ============================================================
+    // AUTO-UPDATE CHECK
+    // ============================================================
+
+    function checkForUpdate() {
+        if (!CONFIG.autoUpdate) return;
+
+        // Note: Update URL should point to your actual repository
+        const SCRIPT_URL = 'https://raw.githubusercontent.com/YOUR_REPO/brave-youtube-adblock/main/script.user.js';
+
+        fetch(SCRIPT_URL)
+            .then(response => response.text())
+            .then(data => {
+                const match = data.match(/@version\s+(\d+\.\d+\.\d+)/);
+                if (match) {
+                    const remoteVersion = match[1];
+                    const currentVersion = GM_info?.script?.version || '1.0.0';
+
+                    if (remoteVersion > currentVersion) {
+                        log(`New version available: ${remoteVersion} (Current: ${currentVersion})`, 'warn');
+                    }
+                }
+            })
+            .catch(err => {
+                if (CONFIG.debug) console.warn('Update check failed:', err);
+            });
     }
 
     // ============================================================
@@ -463,6 +677,10 @@
         document.addEventListener('DOMContentLoaded', initialize);
     } else {
         initialize();
+    }
+
+    if (CONFIG.autoUpdate) {
+        setTimeout(checkForUpdate, 5000);
     }
 
 })();
